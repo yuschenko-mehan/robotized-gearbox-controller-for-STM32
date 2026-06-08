@@ -10,7 +10,7 @@ STM32F103C8T6 at the center with all peripherals and external components
 ## 🌟 Project Overview
 This open-source controller transforms a standard manual transmission into a fully automated robotized gearbox (AMT). Using two stepper motors for gear selection and a DC actuator for clutch control, the system reads vehicle data via CAN bus and performs automatic or manual gear changes with professional-grade safety features.
  Key Features
--**🎯** Automatic CAN Bus Profiling – Detects Ford, VW, Toyota, or BMW in 4 seconds without reprogramming
+-🎯Automatic CAN Bus Profiling – Detects Ford, VW, Toyota, or BMW in 4 seconds without reprogramming
 -⚡ Adaptive Shift Algorithm – Rev-matching emulation via adaptive clutch hold time
 -🛡️ Dual Redundant Sensors – AS5600 magnetic encoder + analog potentiometer with automatic failover
 
