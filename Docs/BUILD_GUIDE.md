@@ -386,7 +386,7 @@ gear N
 ---
 
 ## 🎮 Control Interface
-![Control Flow](Docs/CONTROL_FLOW.png)
+![Control Flow](https://github.com/yuschenko-mehan/robotized-gearbox-controller-for-STM32/blob/main/Docs/CONTROL_FLOW.png)
 *User commands and system responses*
 
 ### UART Console Commands (115200 baud)
