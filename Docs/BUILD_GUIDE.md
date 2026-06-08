@@ -347,9 +347,7 @@ gear N
 1. Pair phone with HM-10 (default PIN: 1234 or 0000)
 2. Send: `S` (status)
 3. Should receive: `Gear:N RPM:800 Spd:0 Throt:0% Mode:MANUAL Limp:OFF`
-
 ---
-
 ## Troubleshooting
 
 | Problem | Solution |
@@ -382,17 +380,11 @@ gear N
 **Estimated Total Build Time: 4-6 hours**
 
 ---
-
 ## Safety Warnings
-
 ⚠️ **HIGH CURRENT**: 12V 5A supply can cause burns or fire. Use proper fuses.
-
 ⚠️ **MOVING PARTS**: Stepper motors and clutch actuator can cause injury. Keep fingers clear.
-
 ⚠️ **VEHICLE SAFETY**: This system controls your transmission. Test thoroughly before road use. Always use handbrake during calibration.
-
 ⚠️ **EMERGENCY STOP**: Always have the emergency stop button accessible. Test it before every drive.
-
 ---
 
 ## 🎮 Control Interface
