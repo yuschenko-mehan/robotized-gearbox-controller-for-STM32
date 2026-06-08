@@ -224,7 +224,11 @@ SWCLK → A14
 
 ## Wiring Diagram
 
-See [SCHEMATIC.png](SCHEMATIC.png) for visual diagram.
+See for visual diagram.
+
+![Wiring Diagram](Docs/WIRING_DIAGRAM.png)
+*Complete pinout and connections for all components*
+See [BUILD_GUIDE.md](Docs/BUILD_GUIDE.md) for step-by-step instructions.
 
 **Golden Pin Map:**
 
@@ -277,11 +281,12 @@ See [SCHEMATIC.png](SCHEMATIC.png) for visual diagram.
 
 1. Open terminal: **115200 8N1** (PuTTY, screen, minicom)
 2. You should see:
+
 === ROBOTIZED GEARBOX v2.0 ===
 CAN profile loaded.
 Calibration loaded.
 
-3. Type: `help` – should show command list
+4. Type: `help` – should show command list
 
 ### 3. Full Calibration
 calibrate
@@ -390,9 +395,25 @@ gear N
 
 ---
 
+## 🎮 Control Interface
+![Control Flow](Docs/CONTROL_FLOW.png)
+*User commands and system responses*
+
+### UART Console Commands (115200 baud)
+help                    - Show all commands
+status                  - Current system status
+calibrate               - Run full calibration
+learn_gears             - Teach gear positions
+mode auto/manual        - Toggle drive mode
+gear N/1-5/R            - Shift to gear
+can_scan                - Rescan CAN bus
+can_status              - Show CAN profile
+sensor_status           - Check sensor health
+save                    - Save calibration to Flash
+reset                   - Soft reset MCU
+
 ## Support
 
 For questions or issues:
----
 
 **Happy building! 🚗⚙️**
