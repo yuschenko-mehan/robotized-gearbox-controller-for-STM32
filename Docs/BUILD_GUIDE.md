@@ -226,7 +226,7 @@ SWCLK → A14
 
 See for visual diagram.
 
-[Wiring Diagram](Docs/WIRING_DIAGRAM.png)
+[Wiring Diagram](https://github.com/yuschenko-mehan/robotized-gearbox-controller-for-STM32/blob/main/Docs/WIRING_DIAGRAM.png)
 *Complete pinout and connections for all components*
 **Golden Pin Map:**
 
