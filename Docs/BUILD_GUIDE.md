@@ -22,7 +22,7 @@
 - Drill and bits (for enclosure)
 
 ### Components
-See [BOM](https://github.com/yuschenko-mehan/robotized-gearbox-controller-for-STM32/blob/main/Docs/BOM_gearbox.csv) for complete list.
+See ![BOM](https://github.com/yuschenko-mehan/robotized-gearbox-controller-for-STM32/blob/main/Docs/BOM_gearbox.csv) for complete list.
 ## Hardware Assembly
 ### Step 1: Power Distribution
 12V 5A Supply
@@ -226,7 +226,7 @@ SWCLK → A14
 
 See for visual diagram.
 
-[Wiring Diagram](https://github.com/yuschenko-mehan/robotized-gearbox-controller-for-STM32/blob/main/Docs/WIRING_DIAGRAM.png)
+![Wiring Diagram](https://github.com/yuschenko-mehan/robotized-gearbox-controller-for-STM32/blob/main/Docs/WIRING_DIAGRAM.png)
 *Complete pinout and connections for all components*
 **Golden Pin Map:**
 
