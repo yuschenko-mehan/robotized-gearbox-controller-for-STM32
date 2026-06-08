@@ -6,18 +6,16 @@ This commit adds the complete firmware for the Adaptive Robotized Manual Transmi
 This open-source controller transforms a standard manual transmission into a fully automated robotized gearbox (AMT). Using two stepper motors for gear selection and a DC actuator for clutch control, the system reads vehicle data via CAN bus and performs automatic or manual gear changes with professional-grade safety features.
 
 ### Key Features
-- **🎯 Automatic CAN Bus Profiling** – Detects Ford, VW, Toyota, or BMW in 4 seconds without reprogramming
-- **⚡ Adaptive Shift Algorithm** – Rev-matching emulation via adaptive clutch hold time
-- **🛡️ Dual Redundant Sensors** – AS5600 magnetic encoder + analog potentiometer with automatic failover
-- ** Intelligent Limp Mode** – Safe operation during sensor/CAN failures with smartphone alerts
-- **📱 Bluetooth Control** – HM-10 module for smartphone commands
-- **💾 Persistent Storage** – Flash + SD card backup for calibration data
-- **🔋 Power Saving** – Automatic sleep mode after 5s inactivity
-- **🅿️ Auto-Parking** – Intelligent parking with clutch disengagement
----
-##  System Architecture
+- 🎯 Automatic CAN Bus Profiling** – Detects Ford, VW, Toyota, or BMW in 4 seconds without reprogramming
+- ⚡ Adaptive Shift Algorithm** – Rev-matching emulation via adaptive clutch hold time
+- 🛡️ Dual Redundant Sensors** – AS5600 magnetic encoder + analog potentiometer with automatic failover
+-  Intelligent Limp Mode** – Safe operation during sensor/CAN failures with smartphone alerts
+- 📱 Bluetooth Control** – HM-10 module for smartphone commands
+- 💾 Persistent Storage** – Flash + SD card backup for calibration data
+- 🔋 Power Saving** – Automatic sleep mode after 5s inactivity
+- 🅿️ Auto-Parking** – Intelligent parking with clutch disengagement
 
- gearbox_controller.c (v1.3 - Optimized Production Build)
+📄 gearbox_controller.c (v1.3 - Optimized Production Build)
    • Compact, optimized version for flashing to the MCU
    • All known issues resolved (USART3 remapped to PC10/PC11, no pin conflicts)
    • Analog tachometer implemented (TIM4, PB6)
