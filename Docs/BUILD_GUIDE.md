@@ -22,7 +22,7 @@
 - Drill and bits (for enclosure)
 
 ### Components
-See [BOM] for complete list.
+See [BOM](https://github.com/yuschenko-mehan/robotized-gearbox-controller-for-STM32/blob/main/Docs/BOM_gearbox.csv) for complete list.
 ## Hardware Assembly
 ### Step 1: Power Distribution
 12V 5A Supply
