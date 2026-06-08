@@ -226,10 +226,8 @@ SWCLK → A14
 
 See for visual diagram.
 
-![Wiring Diagram](Docs/WIRING_DIAGRAM.png)
+[Wiring Diagram](Docs/WIRING_DIAGRAM.png)
 *Complete pinout and connections for all components*
-See [BUILD_GUIDE.md](Docs/BUILD_GUIDE.md) for step-by-step instructions.
-
 **Golden Pin Map:**
 
 | Pin | Function | Mode | Notes |
