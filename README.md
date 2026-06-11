@@ -1,4 +1,5 @@
 # 🚗 Adaptive Robotized Manual Transmission Controller
+Chat: https://t.me/+YBdTQeCleQdkMmEy
 # robotized-gearbox-controller-for-STM32
 Adaptive Robotized Manual Transmission Controller for STM32
 This commit adds the complete firmware for the Adaptive Robotized Manual Transmission Controller (STM32F103C8T6).
