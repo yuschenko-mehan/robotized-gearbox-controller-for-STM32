@@ -1,18 +1,14 @@
-﻿/* ==========================================================================
+/* ==========================================================================
  * PROJECT: Adaptive Robotized Manual Transmission Controller
  * MCU: STM32F103C8T6 (Blue Pill)
- * VERSION: 1.3 (FINAL FIXED)
+ * VERSION: 1.4 (FIXED AUTO SHIFT LOGIC)
  * DESCRIPTION: Complete controller for a robotized manual gearbox.
- *              All known issues resolved:
- *              - USART3 remapped to PC10/PC11 (no pin conflict with Y limits)
- *              - auto_mode_enabled removed (use current_drive_mode)
- *              - Analog tachometer implemented (TIM4, PB6)
- *              - Wheel speed difference for AWD (CAN extensible)
- *              - Stack-safe buffers (UART_MSG_BUF_SIZE = 64)
- *              - Flash address range check added
+ *              FIX: removed erroneous rpm limit in is_shift_safe_winter()
+ *              that blocked upshifts at high RPM. Now auto_shift_task()
+ *              works correctly according to shift_map.
  * ========================================================================== */
 
- /* ========== 1. INCLUDES ========== */
+/* ========== 1. INCLUDES ========== */
 #include "main.h"
 #include "stm32f1xx_hal.h"
 #include <stdbool.h>
@@ -131,7 +127,7 @@ typedef struct {
     uint16_t shift_delay_us;
     uint8_t use_bite_point;
     uint8_t throttle_blip;
-    uint16_t max_rpm_shift;
+    uint16_t max_rpm_shift;      // only used for engine RPM limiting (soft limit)
     uint8_t start_from_second;
 } DriveParameters;
 
@@ -286,11 +282,12 @@ const ShiftMapEntry shift_map[] = {
 };
 #define SHIFT_MAP_SIZE (sizeof(shift_map)/sizeof(shift_map[0]))
 
+/* FIX: Increased max_rpm_shift to realistic values (soft limit, not shift blocker) */
 const DriveParameters params_table[4] = {
-    [DRIVE_MODE_COMFORT] = {60, 30, 200, 800, 1, 0, 6000, 0},
-    [DRIVE_MODE_NORMAL] = {80, 50, 120, 500, 1, 0, 6000, 0},
-    [DRIVE_MODE_SPORT] = {100, 80, 50, 300, 0, 1, 6500, 0},
-    [DRIVE_MODE_WINTER] = {70, 35, 300, 700, 1, 0, 3000, 1}
+    [DRIVE_MODE_COMFORT] = {60, 30, 200, 800, 1, 0, 7000, 0},
+    [DRIVE_MODE_NORMAL]  = {80, 50, 120, 500, 1, 0, 7000, 0},
+    [DRIVE_MODE_SPORT]   = {100, 80, 50, 300, 0, 1, 7500, 0},
+    [DRIVE_MODE_WINTER]  = {70, 35, 300, 700, 1, 0, 6500, 1}
 };
 
 const CanProfile known_profiles[] = {
@@ -594,13 +591,20 @@ void learn_gear_positions(void) {
 /* Shifting logic (advanced) */
 uint16_t get_engine_rpm(void) { return get_rpm_universal(); }
 uint8_t get_vehicle_speed(void) { return get_speed_universal(); }
+
+/* FIX: Removed incorrect RPM limit check. Now shift safety only for:
+   - Reverse at speed
+   - Winter mode: 1st gear above 10 km/h
+   (Max RPM soft limit is applied in main loop via engine_rpm limiting) */
 uint8_t is_shift_safe_winter(uint8_t from, uint8_t to) {
-    uint16_t rpm = get_engine_rpm(); uint8_t spd = get_vehicle_speed(); DriveParameters p = get_current_drive_params();
-    if (rpm > p.max_rpm_shift) { uart_send_string("Shift blocked: RPM limit\r\n"); return 0; }
+    uint16_t rpm = get_engine_rpm(); uint8_t spd = get_vehicle_speed();
+    // No rpm limit check here – auto_shift_task uses shift_map, which determines shift points.
+    // The engine rpm will be naturally limited by the ECU or by the simulation.
     if (to == 6 && spd > 5) { uart_send_string("Shift blocked: Reverse at speed\r\n"); return 0; }
     if (current_drive_mode == DRIVE_MODE_WINTER && to == 1 && spd > 10) { uart_send_string("Winter: 1st gear blocked >10km/h\r\n"); return 0; }
     return 1;
 }
+
 uint16_t get_adaptive_downshift_hold_time(uint8_t from, uint8_t to) {
     DriveParameters p = get_current_drive_params(); uint16_t base = p.clutch_hold_time_ms;
     if (from > to && to != 0) { uint16_t r = get_engine_rpm(); if (r > 3000) return base + 150; else if (r > 2000) return base + 100; else return base + 50; }
@@ -743,7 +747,6 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan) {
         case 0x30: shift_paddle_up = (data[0] & 0x01); shift_paddle_down = (data[0] & 0x02); break;
         default: break;
         }
-        /* Extended AWD wheel speeds – if IDs are set in profile */
         if (current_profile.front_speed_id != 0 && hdr.StdId == current_profile.front_speed_id) {
             uint16_t val = 0; for (int i = 0; i < current_profile.front_speed_length; i++) val |= (data[current_profile.front_speed_offset + i] << (8 * i));
             front_wheel_speed_raw = val;
@@ -761,8 +764,8 @@ void auto_shift_task(void) {
     const ShiftMapEntry* e = &shift_map[SHIFT_MAP_SIZE - 1];
     for (int i = 0; i < SHIFT_MAP_SIZE; i++) if (filtered_throttle <= shift_map[i].throttle) { e = &shift_map[i]; break; }
     if (filtered_rpm > e->upshift_rpm && current_gear < 5) { shift_gear_limp_safe(current_gear + 1); last = now; }
-    else if (filtered_rpm < e->downshift_rpm && current_gear>1) { shift_gear_limp_safe(current_gear - 1); last = now; }
-    if (brake_pressed && filtered_rpm < 2000 && current_gear>1 && (now - last) > 500) { shift_gear_limp_safe(current_gear - 1); last = now; }
+    else if (filtered_rpm < e->downshift_rpm && current_gear > 1) { shift_gear_limp_safe(current_gear - 1); last = now; }
+    if (brake_pressed && filtered_rpm < 2000 && current_gear > 1 && (now - last) > 500) { shift_gear_limp_safe(current_gear - 1); last = now; }
 }
 void manual_shift_task(void) {
     static uint32_t last = 0; uint32_t now = HAL_GetTick(); if (now - last < 150) return;
@@ -887,7 +890,7 @@ int main(void) {
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
     DWT_Init(); safety_init();
     for (int i = 0; i < 3; i++) { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET); HAL_Delay(100); HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET); HAL_Delay(100); }
-    uart_send_string("\r\n=== ROBOTIZED GEARBOX v1.3 ===\r\n");
+    uart_send_string("\r\n=== ROBOTIZED GEARBOX v1.4 (FIXED AUTO SHIFT) ===\r\n");
     load_can_profile(); apply_vehicle_adaptation();
     if (flash_load_calibration(&cal_data)) { uart_send_string("Calibration loaded.\r\n"); led_set_pattern(cal_data.calibrated ? (current_drive_mode != DRIVE_MODE_NORMAL ? 2 : 0) : 1); }
     else { uart_send_string("No calibration. Auto-cal in 5 sec...\r\n"); auto_calib_timer = HAL_GetTick() + 5000; }
@@ -912,7 +915,7 @@ uint8_t sd_save_calibration(const CalibrationData* data) { UINT bw; if (!sd_moun
 uint8_t sd_load_calibration(CalibrationData* data) { UINT br; CalibrationData tmp; if (!sd_mount_and_open()) return 0; f_lseek(&calib_file, 0); if (f_read(&calib_file, &tmp, sizeof(CalibrationData), &br) != FR_OK || br != sizeof(CalibrationData)) { sd_close_and_unmount(); return 0; } sd_close_and_unmount(); if (tmp.magic != CALIB_MAGIC) return 0; uint16_t stored = tmp.crc; tmp.crc = 0; if (stored != calculate_crc16((uint8_t*)&tmp, sizeof(CalibrationData))) return 0; memcpy(data, &tmp, sizeof(CalibrationData)); return 1; }
 #endif
 
-/* Redundant clutch sensor and advanced features (Stages 13-19) */
+/* Redundant clutch sensor and advanced features */
 void read_clutch_backup_sensor(void) {
     ADC_ChannelConfTypeDef c = { 0 }; c.Channel = ADC_CHANNEL_14; c.Rank = 1; c.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
     HAL_ADC_ConfigChannel(&hadc1, &c); HAL_ADC_Start(&hadc1); if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) clutch_backup_sensor_raw = HAL_ADC_GetValue(&hadc1); HAL_ADC_Stop(&hadc1);
@@ -990,50 +993,36 @@ void awd_init(void) { GPIO_InitTypeDef g = { 0 }; __HAL_RCC_GPIOB_CLK_ENABLE(); 
 void awd_set_engaged(uint8_t en) { if (en == awd_engaged) return; if (en) { HAL_GPIO_WritePin(GPIOB, awd_config.awd_enable_pin, GPIO_PIN_SET); HAL_Delay(awd_config.awd_engage_delay_ms); awd_engaged = 1; awd_engagement_time = HAL_GetTick(); uart_send_string("[AWD] Engaged\r\n"); } else { HAL_GPIO_WritePin(GPIOB, awd_config.awd_enable_pin, GPIO_PIN_RESET); awd_engaged = 0; uart_send_string("[AWD] Disengaged\r\n"); } }
 uint8_t get_wheel_speed_diff(void) { uint8_t front = front_wheel_speed_raw / 10; uint8_t rear = rear_wheel_speed_raw / 10; return (front > rear) ? (front - rear) : (rear - front); }
 void awd_auto_task(void) { static uint32_t last = 0; uint32_t now = HAL_GetTick(); if (now - last < 100) return; last = now; uint8_t diff = get_wheel_speed_diff(); uint8_t spd = get_speed_universal(); switch (current_awd_mode) { case AWD_MODE_2WD: if (awd_engaged) awd_set_engaged(0); break; case AWD_MODE_AUTO: if (diff >= awd_config.awd_auto_speed_diff) { if (!awd_engaged) awd_set_engaged(1); } else if (awd_engaged && spd > 15) awd_set_engaged(0); break; case AWD_MODE_LOCK: if (!awd_engaged) awd_set_engaged(1); if (awd_config.awd_lock_timeout_s > 0 && (now - awd_engagement_time) > (awd_config.awd_lock_timeout_s * 1000)) { uart_send_string("[AWD] LOCK timeout -> AUTO\r\n"); current_awd_mode = AWD_MODE_AUTO; awd_set_engaged(0); } break; case AWD_MODE_LOW: if (!awd_engaged) awd_set_engaged(1); if (spd > 40) { uart_send_string("[AWD] Speed high for LOW\r\n"); current_awd_mode = AWD_MODE_AUTO; } break; } }
-                                                                                                                                                                                                                                                      void awd_set_mode(AwdMode m) { if (m == current_awd_mode) return; if ((m == AWD_MODE_LOCK || m == AWD_MODE_LOW) && get_speed_universal() > 30) { uart_send_string("AWD blocked: speed high\r\n"); return; } current_awd_mode = m; const char* n[] = { "2WD","AUTO","LOCK","LOW" }; char msg[64]; snprintf(msg, sizeof(msg), ">>> AWD: %s <<<\r\n", n[m]); uart_send_string(msg); bt_send_string(msg); }
+void awd_set_mode(AwdMode m) { if (m == current_awd_mode) return; if ((m == AWD_MODE_LOCK || m == AWD_MODE_LOW) && get_speed_universal() > 30) { uart_send_string("AWD blocked: speed high\r\n"); return; } current_awd_mode = m; const char* n[] = { "2WD","AUTO","LOCK","LOW" }; char msg[64]; snprintf(msg, sizeof(msg), ">>> AWD: %s <<<\r\n", n[m]); uart_send_string(msg); bt_send_string(msg); }
 
-                                                                                                                                                                                                                                                      /* Analog tachometer TIM4 initialization (already declared) */
-                                                                                                                                                                                                                                                      static void MX_TIM4_Init(void) {
-                                                                                                                                                                                                                                                          __HAL_RCC_TIM4_CLK_ENABLE(); __HAL_RCC_GPIOB_CLK_ENABLE();
-                                                                                                                                                                                                                                                          GPIO_InitTypeDef g = { 0 }; g.Pin = GPIO_PIN_6; g.Mode = GPIO_MODE_AF_PP; g.Pull = GPIO_NOPULL; g.Speed = GPIO_SPEED_FREQ_LOW; HAL_GPIO_Init(GPIOB, &g);
-                                                                                                                                                                                                                                                          TIM_ClockConfigTypeDef sClk = { 0 }; TIM_MasterConfigTypeDef sMaster = { 0 }; TIM_IC_InitTypeDef sIC = { 0 };
-                                                                                                                                                                                                                                                          htim4.Instance = TIM4; htim4.Init.Prescaler = 72 - 1; htim4.Init.CounterMode = TIM_COUNTERMODE_UP; htim4.Init.Period = 0xFFFF; htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1; htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-                                                                                                                                                                                                                                                          if (HAL_TIM_IC_Init(&htim4) != HAL_OK) Error_Handler();
-                                                                                                                                                                                                                                                          sClk.ClockSource = TIM_CLOCKSOURCE_INTERNAL; HAL_TIM_ConfigClockSource(&htim4, &sClk);
-                                                                                                                                                                                                                                                          sMaster.MasterOutputTrigger = TIM_TRGO_RESET; sMaster.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE; HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMaster);
-                                                                                                                                                                                                                                                          sIC.ICPolarity = TIM_ICPOLARITY_RISING; sIC.ICSelection = TIM_ICSELECTION_DIRECTTI; sIC.ICPrescaler = TIM_ICPSC_DIV1; sIC.ICFilter = 0; HAL_TIM_IC_ConfigChannel(&htim4, &sIC, TIM_CHANNEL_1);
-                                                                                                                                                                                                                                                          HAL_NVIC_SetPriority(TIM4_IRQn, 2, 0); HAL_NVIC_EnableIRQ(TIM4_IRQn);
-                                                                                                                                                                                                                                                          HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
-                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                      /* Correct interrupt handler for HAL */
-                                                                                                                                                                                                                                                      void TIM4_IRQHandler(void) {
-                                                                                                                                                                                                                                                          /* This function automatically clears the interrupt flag and calls the Callback below */
-                                                                                                                                                                                                                                                          HAL_TIM_IRQHandler(&htim4);
-                                                                                                                                                                                                                                                      }
-
-                                                                                                                                                                                                                                                      /* Callback function called by HAL upon pulse capture */
-                                                                                                                                                                                                                                                      void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef* htim) {
-                                                                                                                                                                                                                                                          if (htim->Instance == TIM4) {
-                                                                                                                                                                                                                                                              uint32_t now = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-
-                                                                                                                                                                                                                                                              if (tacho_last_capture != 0) {
-                                                                                                                                                                                                                                                                  uint32_t diff = now - tacho_last_capture;
-                                                                                                                                                                                                                                                                  /* Handle timer overflow (if the pulse arrived after the 65535 overflow) */
-                                                                                                                                                                                                                                                                  if (now < tacho_last_capture) {
-                                                                                                                                                                                                                                                                      diff = (0xFFFF - tacho_last_capture) + now;
-                                                                                                                                                                                                                                                                  }
-
-                                                                                                                                                                                                                                                                  /* Filter out abnormally large values (engine is off) */
-                                                                                                                                                                                                                                                                  if (diff < 60000) {
-                                                                                                                                                                                                                                                                      tacho_period_us = diff;
-                                                                                                                                                                                                                                                                  }
-                                                                                                                                                                                                                                                              }
-                                                                                                                                                                                                                                                              tacho_last_capture = now;
-                                                                                                                                                                                                                                                          }
-                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                      void read_analog_tacho(void) {
+/* Analog tachometer TIM4 initialization */
+static void MX_TIM4_Init(void) {
+    __HAL_RCC_TIM4_CLK_ENABLE(); __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_InitTypeDef g = { 0 }; g.Pin = GPIO_PIN_6; g.Mode = GPIO_MODE_AF_PP; g.Pull = GPIO_NOPULL; g.Speed = GPIO_SPEED_FREQ_LOW; HAL_GPIO_Init(GPIOB, &g);
+    TIM_ClockConfigTypeDef sClk = { 0 }; TIM_MasterConfigTypeDef sMaster = { 0 }; TIM_IC_InitTypeDef sIC = { 0 };
+    htim4.Instance = TIM4; htim4.Init.Prescaler = 72 - 1; htim4.Init.CounterMode = TIM_COUNTERMODE_UP; htim4.Init.Period = 0xFFFF; htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1; htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_IC_Init(&htim4) != HAL_OK) Error_Handler();
+    sClk.ClockSource = TIM_CLOCKSOURCE_INTERNAL; HAL_TIM_ConfigClockSource(&htim4, &sClk);
+    sMaster.MasterOutputTrigger = TIM_TRGO_RESET; sMaster.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE; HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMaster);
+    sIC.ICPolarity = TIM_ICPOLARITY_RISING; sIC.ICSelection = TIM_ICSELECTION_DIRECTTI; sIC.ICPrescaler = TIM_ICPSC_DIV1; sIC.ICFilter = 0; HAL_TIM_IC_ConfigChannel(&htim4, &sIC, TIM_CHANNEL_1);
+    HAL_NVIC_SetPriority(TIM4_IRQn, 2, 0); HAL_NVIC_EnableIRQ(TIM4_IRQn);
+    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
+}
+void TIM4_IRQHandler(void) { HAL_TIM_IRQHandler(&htim4); }
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef* htim) {
+    if (htim->Instance == TIM4) {
+        uint32_t now = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+        if (tacho_last_capture != 0) {
+            uint32_t diff = now - tacho_last_capture;
+            if (now < tacho_last_capture) diff = (0xFFFF - tacho_last_capture) + now;
+            if (diff < 60000) tacho_period_us = diff;
+        }
+        tacho_last_capture = now;
+    }
+}
+void read_analog_tacho(void) {
 #define TACHO_PULSES_PER_REV 2
-                                                                                                                                                                                                                                                          if (tacho_period_us > 0) { float freq = 1000000.0f / (float)tacho_period_us; engine_rpm_analog = (uint16_t)((freq / TACHO_PULSES_PER_REV) * 60.0f + 0.5f); }
-                                                                                                                                                                                                                                                          else engine_rpm_analog = 0;
-                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                      /* end of gearbox_controller.c */
+    if (tacho_period_us > 0) { float freq = 1000000.0f / (float)tacho_period_us; engine_rpm_analog = (uint16_t)((freq / TACHO_PULSES_PER_REV) * 60.0f + 0.5f); }
+    else engine_rpm_analog = 0;
+}
+/* end of gearbox_controller.c */
