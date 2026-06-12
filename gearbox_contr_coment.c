@@ -1,8 +1,8 @@
 ﻿/* ==========================================================================
  * PROJECT: Adaptive Robotized Manual Transmission Controller
  * MCU: STM32F103C8T6 (Blue Pill)
- * VERSION: 2.0 (Ultimate Documented Edition)
- * AUTHOR: (Your Name)
+ * VERSION: 2.1 (Ultimate Documented Edition) – FIXED: removed incorrect RPM limit in is_shift_safe_winter()
+ * AUTHOR: (Mykola Yushchenko)
  * LICENSE: Open source for educational and competitive use
  *
  * DESCRIPTION:
@@ -12,6 +12,12 @@
  * provides safety features (current monitoring, emergency stop, limp mode),
  * redundant clutch position sensing (AS5600 + potentiometer), power saving,
  * and an interactive UART/Bluetooth command interface.
+ *
+ * FIX: Removed the condition (rpm > p.max_rpm_shift) from is_shift_safe_winter()
+ *      which previously blocked upshifts when RPM exceeded a configurable limit.
+ *      Now automatic shifts are governed solely by shift_map, allowing normal
+ *      operation up to the engine's natural redline. The max_rpm_shift parameter
+ *      is kept for potential future soft limiting but no longer blocks shifts.
  *
  * Every line is commented to explain its purpose, making it ideal for
  * learning, modification, and competition submissions.
@@ -190,7 +196,7 @@ typedef struct {
     uint16_t shift_delay_us;          // Delay between stepper motor steps – lower = faster shift
     uint8_t use_bite_point;           // 1 = pause at bite point for smoothness, 0 = aggressive dump
     uint8_t throttle_blip;            // Reserved for future automatic rev‑matching (1 = enable)
-    uint16_t max_rpm_shift;           // Safety limit – shift blocked if RPM exceeds this
+    uint16_t max_rpm_shift;           // *** NOTE: This field is no longer used to block shifts. It is kept for compatibility. ***
     uint8_t start_from_second;        // 1 = start moving in 2nd gear (Winter mode)
 } DriveParameters;
 
@@ -1325,13 +1331,30 @@ void learn_gear_positions(void) {
 // Shifting logic (advanced)
 uint16_t get_engine_rpm(void) { return get_rpm_universal(); }
 uint8_t get_vehicle_speed(void) { return get_speed_universal(); }
+
+/**
+ * @brief Check if the requested shift is safe for winter mode or reverse.
+ * IMPORTANT: The original condition (rpm > p.max_rpm_shift) has been REMOVED
+ * because it incorrectly blocked upshifts when RPM exceeded a configurable limit,
+ * preventing automatic shifting at high engine speeds. Now shifts are allowed
+ * regardless of RPM, letting the shift map determine the correct upshift points.
+ * The max_rpm_shift parameter is kept only for potential future use (e.g., soft RPM limiting).
+ */
 uint8_t is_shift_safe_winter(uint8_t from, uint8_t to) {
-    uint16_t rpm = get_engine_rpm(); uint8_t spd = get_vehicle_speed(); DriveParameters p = get_current_drive_params();
-    if (rpm > p.max_rpm_shift) { uart_send_string("Shift blocked: RPM limit\r\n"); return 0; }
-    if (to == 6 && spd > 5) { uart_send_string("Shift blocked: Reverse at speed\r\n"); return 0; }
-    if (current_drive_mode == DRIVE_MODE_WINTER && to == 1 && spd > 10) { uart_send_string("Winter: 1st gear blocked >10km/h\r\n"); return 0; }
+    uint16_t rpm = get_engine_rpm();
+    uint8_t spd = get_vehicle_speed();
+    // No RPM limit check – shift blocking removed
+    if (to == 6 && spd > 5) {
+        uart_send_string("Shift blocked: Reverse at speed\r\n");
+        return 0;
+    }
+    if (current_drive_mode == DRIVE_MODE_WINTER && to == 1 && spd > 10) {
+        uart_send_string("Winter: 1st gear blocked >10km/h\r\n");
+        return 0;
+    }
     return 1;
 }
+
 uint16_t get_adaptive_downshift_hold_time(uint8_t from, uint8_t to) {
     DriveParameters p = get_current_drive_params(); uint16_t base = p.clutch_hold_time_ms;
     if (from > to && to != 0) { uint16_t r = get_engine_rpm(); if (r > 3000) return base + 150; else if (r > 2000) return base + 100; else return base + 50; }
@@ -1628,7 +1651,7 @@ int main(void) {
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
     DWT_Init(); safety_init();
     for (int i = 0; i < 3; i++) { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET); HAL_Delay(100); HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET); HAL_Delay(100); }
-    uart_send_string("\r\n=== ROBOTIZED GEARBOX v2.0 ===\r\n");
+    uart_send_string("\r\n=== ROBOTIZED GEARBOX v2.0 (FIXED AUTO SHIFT) ===\r\n");
     load_can_profile(); apply_vehicle_adaptation();
     if (flash_load_calibration(&cal_data)) { uart_send_string("Calibration loaded.\r\n"); led_set_pattern(cal_data.calibrated ? (current_drive_mode != DRIVE_MODE_NORMAL ? 2 : 0) : 1); }
     else { uart_send_string("No calibration. Auto-cal in 5 sec...\r\n"); auto_calib_timer = HAL_GetTick() + 5000; }
