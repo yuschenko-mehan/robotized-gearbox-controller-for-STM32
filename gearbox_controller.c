@@ -2,7 +2,7 @@
  * PROJECT: Adaptive Robotized Manual Transmission Controller
  * MCU: STM32F103C8T6 (Blue Pill)
  * VERSION: 3.0 (Multi‑mode shift maps + smooth clutch always)
- * AUTHOR: (Your Name)
+ * AUTHOR: (Mykola Yushchenko)
  * LICENSE: Open source for educational and competitive use
  *
  * DESCRIPTION:
