@@ -1,3 +1,5 @@
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 # 🚗 Adaptive Robotized Manual Transmission Controller
 Chat: https://t.me/+YBdTQeCleQdkMmEy
 # robotized-gearbox-controller-for-STM32
