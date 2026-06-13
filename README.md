@@ -67,7 +67,6 @@ By using, copying, or modifying any part of this project, you acknowledge that y
 ## 💖 Support This Research
 If you find this project useful for your studies, car tuning, or engineering work, please consider supporting my research. Your contributions help me buy hardware for new prototypes and keep this project open-source.
 
-- **Direct Bank Transfer (IBAN):** UA183052990000026209884907769 (PrivatBank) - *Contact me for details <img width="200" height="200" alt="image" src="https://github.com/user-attachments/assets/7f0d3c20-5d54-439a-bc76-9ae528c77654" />
-*
+- **Direct Bank Transfer (IBAN):** UA183052990000026209884907769 (PrivatBank) - *Contact me for details <img width="200" height="200" alt="image" src="https://github.com/user-attachments/assets/7f0d3c20-5d54-439a-bc76-9ae528c77654" />*
 
 **Goal:** Raise $10,000 to build a commercial-grade test bench and adapt this controller for 10 different car models. 100% of funds go to hardware and open-source development.
