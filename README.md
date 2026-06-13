@@ -63,3 +63,12 @@ Simulation vs. Reality: All simulation results (including those obtained from Wo
 Modifications and Maintenance: Any modification of the source code, electrical connections, or mechanical parts voids this disclaimer and is done entirely at your own risk. You are responsible for regular inspection and maintenance of the entire system.
 Intended Use: This project is not intended for use in any commercial product, medical device, life support system, or any application where failure could lead to injury, death, or severe property damage. If you choose to use this system in a vehicle operated on public roads, you assume all legal and financial responsibility.
 By using, copying, or modifying any part of this project, you acknowledge that you have read and understood this disclaimer and agree to be bound by its terms.
+
+## 💖 Support This Research
+If you find this project useful for your studies, car tuning, or engineering work, please consider supporting my research. Your contributions help me buy hardware for new prototypes and keep this project open-source.
+
+- **GitHub Sponsors:** [Become a Sponsor](https://github.com/sponsors/yuschenko-mehan) (Monthly or one-time)
+- **Buy Me A Coffee:** [Support the Project](https://www.buymeacoffee.com/yuschenko) (One-time donations)
+- **Direct Bank Transfer (IBAN):** UA183052990000026209884907769 (PrivatBank) - *Contact me for details*
+
+**Goal:** Raise $10,000 to build a commercial-grade test bench and adapt this controller for 10 different car models. 100% of funds go to hardware and open-source development.
